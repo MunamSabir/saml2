@@ -34,3 +34,61 @@ const createRequest = event => ({
         RelayState: "https://admin.eprinitsaas.org",
     },
 });
+
+
+const getKeyValueMetaData = (attributes) => { // for Okta
+    const namesAndValues = attributes.map(obj => ({
+        name: obj["$"].Name,
+        value: obj["saml2:AttributeValue"][0]._
+      }));
+    if (namesAndValues.length <1) {
+        return null;
+    }
+    let nameValues = namesAndValues.reduce( // converting name and values and array of objects into object
+        (obj, item) => Object.assign(obj, { [item.name]: item.value }), {});
+    return nameValues
+}
+
+// Format could be different, verify the SAML output of your ADFS
+const extractUserInfo = async (samlResponse, claims, value) => { // okta Only
+    const response = samlResponse['saml2p:Response']['saml2:Assertion'][0];
+    const NameID = response['saml2:Subject'][0]['saml2:NameID'][0]._;
+    const samlAttributes = response['saml2:AttributeStatement'][0]['saml2:Attribute']
+    const samlUserInfo = getKeyValueMetaData(samlAttributes)
+    console.log("samlUserInfo",samlUserInfo)
+};
+
+module.exports.samlExtract = async (req, res) => {
+    console.log('Starting SAML parsing...\n');
+    const samlResponse = req.body.SAMLResponse.toString();
+    // const RelayState =  JSON.parseString(req.body.RelayState);
+    const samlBuffer = Buffer.from(samlResponse, 'base64').toString('ascii');
+    let samlObject;
+    parseString(samlBuffer, function (err, result) {
+        console.dir(err);
+        console.dir(result);
+        samlObject=result;
+    });
+    try {
+        const orgID = "ocls";
+        const claimsFromDB={
+            userNameClaim:"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
+            // userNameClaim:"", // if null get from Subject->NameID
+            firstNameClaim:"http://schemas.microsoft.com/identity/claims/objectidentifier",
+            lastNameClaim:"ttp://schemas.xmlsoap.org/ws/2005/05/identity/claims/lastName",
+            emailClaim:"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/email",
+            phoneClaim:"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/phone",
+        }
+        const userInfo = await extractUserInfo(samlObject, claimsFromDB, orgID);
+        console.log("userInfo::",userInfo);
+
+
+        res.redirect('https://')
+    } catch(error) {
+        console.error(error);
+        res.send({
+            statusCode: 500,
+            body: 'An error occurred!',
+        })
+    }
+};
