@@ -61,7 +61,6 @@ const extractUserInfo = async (samlResponse, claims, value) => { // okta Only
 module.exports.samlExtract = async (req, res) => {
     console.log('Starting SAML parsing...\n');
     const samlResponse = req.body.SAMLResponse.toString();
-    // const RelayState =  JSON.parseString(req.body.RelayState);
     const samlBuffer = Buffer.from(samlResponse, 'base64').toString('ascii');
     let samlObject;
     parseString(samlBuffer, function (err, result) {
